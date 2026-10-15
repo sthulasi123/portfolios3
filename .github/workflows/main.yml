@@ -1,0 +1,51 @@
+
+name: Deploy Portfolio to Amazon S3
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "website/**"
+      - ".github/workflows/deploy-s3.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Validate and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate Website Files
+        shell: bash
+        run: |
+          set -e
+          test -s website/index.html
+          test -f website/style.css
+          test -f website/script.js
+          echo "Website validation passed"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      - name: Deploy Website to S3
+        run: |
+          aws s3 sync website/ \
+            "s3://${{ vars.S3_BUCKET }}" \
+            --delete
+
+      - name: Deployment Status
+        run: echo "Portfolio deployment completed"
